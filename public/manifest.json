@@ -1,0 +1,27 @@
+{
+  "short_name": "Inked",
+  "name": "Inked: 钢笔与墨水收藏家",
+  "description": "一款优雅的iOS风格应用程序，用于记录您的钢笔收藏，并跟踪每支钢笔中的墨水，方便参考。",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#201b43",
+  "background_color": "#201b43"
+}
