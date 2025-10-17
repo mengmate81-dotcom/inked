@@ -22,6 +22,26 @@ const initialInks: Ink[] = [
 
 type Theme = 'twilight' | 'daylight' | 'aurora';
 
+// Helper functions for localStorage
+const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const item = window.localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading ${key} from localStorage`, error);
+    return defaultValue;
+  }
+};
+
+const saveToStorage = <T,>(key: string, value: T) => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage`, error);
+  }
+};
+
+
 const themes: Record<Theme, Record<string, string>> = {
   twilight: {
     '--color-background-start': '#201b43',
@@ -125,12 +145,13 @@ const colorDifference = (color1: string, color2: string): number => {
 
 
 const App: React.FC = () => {
-  const [pens, setPens] = useState<Pen[]>(initialPens);
-  const [inks, setInks] = useState<Ink[]>(initialInks);
-  const [brandLogos, setBrandLogos] = useState<Record<string, string>>({});
+  const [pens, setPens] = useState<Pen[]>(() => loadFromStorage('pens', initialPens));
+  const [inks, setInks] = useState<Ink[]>(() => loadFromStorage('inks', initialInks));
+  const [brandLogos, setBrandLogos] = useState<Record<string, string>>(() => loadFromStorage('brandLogos', {}));
   const [activeTab, setActiveTab] = useState<'pens' | 'inks'>('pens');
-  const [theme, setTheme] = useState<Theme>('twilight');
+  const [theme, setTheme] = useState<Theme>(() => loadFromStorage('theme', 'twilight'));
   const [showThemeSwitcher, setShowThemeSwitcher] = useState(false);
+  const [editingLogoForBrand, setEditingLogoForBrand] = useState<string | null>(null);
 
   useEffect(() => {
     const root = document.body;
@@ -140,6 +161,14 @@ const App: React.FC = () => {
     });
     root.style.background = `linear-gradient(to bottom right, var(--color-background-start), var(--color-background-end))`;
   }, [theme]);
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    saveToStorage('pens', pens);
+    saveToStorage('inks', inks);
+    saveToStorage('brandLogos', brandLogos);
+    saveToStorage('theme', theme);
+  }, [pens, inks, brandLogos, theme]);
   
   const normalizeBrand = (brand: string) => brand.trim().toLowerCase();
 
@@ -267,6 +296,11 @@ const App: React.FC = () => {
       setPenToInk(null);
   };
 
+  // === Logo Editing Handler ===
+  const handleOpenLogoEditor = (brandName: string) => {
+    setEditingLogoForBrand(brandName);
+  };
+
   // === Filtering/Sorting State & Logic ===
   const [penSearch, setPenSearch] = useState('');
   const [inkSearch, setInkSearch] = useState('');
@@ -383,7 +417,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 {filteredPens.map(pen => (
-                  <PenItem key={pen.id} pen={pen} ink={getInkById(pen.inkId)} onInk={handleOpenInkSelector} onClean={handleCleanPen} onEdit={handleOpenPenEditor} onDelete={handleDeletePen} customLogo={brandLogos[normalizeBrand(pen.brand)]} />
+                  <PenItem key={pen.id} pen={pen} ink={getInkById(pen.inkId)} onInk={handleOpenInkSelector} onClean={handleCleanPen} onEdit={handleOpenPenEditor} onDelete={handleDeletePen} customLogo={brandLogos[normalizeBrand(pen.brand)]} onLogoClick={handleOpenLogoEditor} />
                 ))}
               </div>
             )}
@@ -411,10 +445,14 @@ const App: React.FC = () => {
                           </button>
                         </div>
                       )}
-                      <div className="relative w-12 h-12 mx-auto mb-2">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleOpenLogoEditor(ink.brand); }}
+                        className="relative w-12 h-12 mx-auto mb-2"
+                        aria-label={`编辑 ${ink.brand} 标志`}
+                      >
                           <BrandLogo brandName={ink.brand} className="w-12 h-12" customLogo={brandLogos[normalizeBrand(ink.brand)]} />
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-[var(--color-surface-primary)]" style={{ backgroundColor: ink.color }}></div>
-                      </div>
+                      </button>
                       <p className="font-semibold text-xs text-[var(--color-text-primary)] truncate">{ink.brand}</p>
                       <p className="text-xs text-[var(--color-text-secondary)] truncate">{ink.name}</p>
                     </div>
@@ -438,7 +476,7 @@ const App: React.FC = () => {
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">尺寸</label><input type="text" value={newPen.nib.size} onChange={e => setNewPen({...newPen, nib: {...newPen.nib, size: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: F, 1.1 Stub" required /></div>
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">材质</label><input type="text" value={newPen.nib.material} onChange={e => setNewPen({...newPen, nib: {...newPen.nib, material: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 钢尖, 14k金" required /></div>
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">特性 (可选)</label><input type="text" value={newPen.nib.features} onChange={e => setNewPen({...newPen, nib: {...newPen.nib, features: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 双色, 刻花" /></div>
-            <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">写感 (可选)</label><textarea value={newPen.nib.writingFeel} onChange={e => setNewPen({...newPen, nib: {...newPen.nib, writingFeel: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 顺滑, 有阻尼感" rows={2}></textarea></div>
+            <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">使用感受 (可选)</label><textarea value={newPen.nib.writingFeel} onChange={e => setNewPen({...newPen, nib: {...newPen.nib, writingFeel: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 顺滑, 有阻尼感" rows={2}></textarea></div>
           </div>
           <button type="submit" className="w-full bg-[var(--color-button-accent-bg)] text-[var(--color-button-accent-text)] py-2 rounded-lg font-semibold hover:bg-[var(--color-button-accent-hover-bg)] transition-colors flex items-center justify-center space-x-2"><PenIcon className="w-5 h-5" /><span>添加钢笔</span></button>
         </form>
@@ -454,7 +492,7 @@ const App: React.FC = () => {
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">尺寸</label><input type="text" value={penToEdit.nib.size} onChange={e => setPenToEdit({...penToEdit, nib: {...penToEdit.nib, size: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: F, 1.1 Stub" required /></div>
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">材质</label><input type="text" value={penToEdit.nib.material} onChange={e => setPenToEdit({...penToEdit, nib: {...penToEdit.nib, material: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 钢尖, 14k金" required /></div>
             <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">特性 (可选)</label><input type="text" value={penToEdit.nib.features} onChange={e => setPenToEdit({...penToEdit, nib: {...penToEdit.nib, features: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 双色, 刻花" /></div>
-            <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">写感 (可选)</label><textarea value={penToEdit.nib.writingFeel || ''} onChange={e => setPenToEdit({...penToEdit, nib: {...penToEdit.nib, writingFeel: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 顺滑, 有阻尼感" rows={2}></textarea></div>
+            <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">使用感受 (可选)</label><textarea value={penToEdit.nib.writingFeel || ''} onChange={e => setPenToEdit({...penToEdit, nib: {...penToEdit.nib, writingFeel: e.target.value}})} className="mt-1 block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" placeholder="例如: 顺滑, 有阻尼感" rows={2}></textarea></div>
           </div>
           <button type="submit" className="w-full bg-[var(--color-button-accent-bg)] text-[var(--color-button-accent-text)] py-2 rounded-lg font-semibold hover:bg-[var(--color-button-accent-hover-bg)] transition-colors flex items-center justify-center space-x-2"><PenIcon className="w-5 h-5" /><span>更新钢笔</span></button>
         </form>
@@ -478,6 +516,24 @@ const App: React.FC = () => {
           <div><label className="text-sm font-medium text-[var(--color-text-secondary)]">颜色</label><div className="flex items-center space-x-2 mt-1"><input type="color" value={inkToEdit.color} onChange={e => setInkToEdit({...inkToEdit, color: e.target.value})} className="h-9 w-9 p-0 border-0 cursor-pointer rounded-md" /><input type="text" value={inkToEdit.color} onChange={e => setInkToEdit({...inkToEdit, color: e.target.value})} className="block w-full border border-[var(--color-border-input)] bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm p-2 focus:ring-[var(--color-text-accent)] focus:border-[var(--color-text-accent)] text-sm" /></div></div>
           <button type="submit" className="w-full bg-[var(--color-button-accent-bg)] text-[var(--color-button-accent-text)] py-2 rounded-lg font-semibold hover:bg-[var(--color-button-accent-hover-bg)] transition-colors flex items-center justify-center space-x-2"><ColorSwatchIcon className="w-5 h-5" /><span>更新墨水</span></button>
         </form>
+      </Modal>
+
+      <Modal isOpen={!!editingLogoForBrand} onClose={() => setEditingLogoForBrand(null)} title={`编辑 “${editingLogoForBrand}” 标志`}>
+        {editingLogoForBrand && (
+          <ImageUploader 
+            brandName={editingLogoForBrand} 
+            currentImage={brandLogos[normalizeBrand(editingLogoForBrand)]}
+            onImageSelect={(base64) => {
+              setBrandLogos(prev => ({ ...prev, [normalizeBrand(editingLogoForBrand as string)]: base64 }));
+            }} 
+          />
+        )}
+        <button
+          onClick={() => setEditingLogoForBrand(null)}
+          className="w-full mt-4 bg-[var(--color-button-accent-bg)] text-[var(--color-button-accent-text)] py-2 rounded-lg font-semibold hover:bg-[var(--color-button-accent-hover-bg)] transition-colors"
+        >
+          完成
+        </button>
       </Modal>
 
       <Modal isOpen={penToInk !== null} onClose={() => setPenToInk(null)} title={`为 ${penToInk?.brand || ''} ${penToInk?.model || ''} 上墨`}>
