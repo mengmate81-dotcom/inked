@@ -10,10 +10,11 @@ interface PenItemProps {
   onClean: (penId: string) => void;
   onEdit: (pen: Pen) => void;
   onDelete: (penId: string) => void;
+  onLogoClick: (brandName: string) => void;
   customLogo?: string | null;
 }
 
-export const PenItem: React.FC<PenItemProps> = ({ pen, ink, onInk, onClean, onEdit, onDelete, customLogo }) => {
+export const PenItem: React.FC<PenItemProps> = ({ pen, ink, onInk, onClean, onEdit, onDelete, customLogo, onLogoClick }) => {
   const nibDetails = [pen.nib.size, pen.nib.material, pen.nib.features].filter(Boolean).join(' ');
   const contentRef = useRef<HTMLDivElement>(null);
   const dragState = useRef({
@@ -108,14 +109,17 @@ export const PenItem: React.FC<PenItemProps> = ({ pen, ink, onInk, onClean, onEd
       >
         <div className="flex justify-between items-start">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
-            <BrandLogo brandName={pen.brand} className="w-9 h-9 flex-shrink-0" customLogo={customLogo} />
+            <button 
+              onClick={() => onLogoClick(pen.brand)} 
+              className="flex-shrink-0 focus:outline-none rounded-full focus:ring-2 focus:ring-[var(--color-text-accent)] focus:ring-offset-2 focus:ring-offset-[var(--color-surface-primary-opaque)]"
+              aria-label={`编辑 ${pen.brand} 标志`}
+            >
+                <BrandLogo brandName={pen.brand} className="w-9 h-9 flex-shrink-0" customLogo={customLogo} />
+            </button>
             <div className="min-w-0">
               <p className="font-semibold text-[var(--color-text-primary)] truncate text-sm">{pen.brand}</p>
               <p className="text-[var(--color-text-secondary)] truncate text-sm">{pen.model}</p>
               <p className="text-xs text-[var(--color-text-subtle)] mt-1 truncate">{nibDetails}</p>
-              {pen.nib.writingFeel && (
-                <p className="text-xs text-[var(--color-text-subtle)] mt-1 italic">“{pen.nib.writingFeel}”</p>
-              )}
             </div>
           </div>
           <div className="text-right flex-shrink-0 ml-3">
@@ -132,6 +136,11 @@ export const PenItem: React.FC<PenItemProps> = ({ pen, ink, onInk, onClean, onEd
             )}
           </div>
         </div>
+
+        {pen.nib.writingFeel && (
+          <p className="text-xs text-[var(--color-text-subtle)] mt-2 italic">“{pen.nib.writingFeel}”</p>
+        )}
+
         <div className="flex justify-end space-x-2 mt-2 pt-2 border-t border-[var(--color-border-secondary)]">
           {ink ? (
             <button onClick={() => onClean(pen.id)} className="flex items-center space-x-1 text-xs text-[var(--color-text-danger)] font-medium px-2.5 py-1 rounded-lg hover:bg-[var(--color-button-danger-hover-bg)] transition-colors">
